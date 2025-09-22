@@ -40,13 +40,24 @@ def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     zz_base = zz_top - thickness / nz
     return xx, yy, zz_top, zz_base
 
-# --- Elevation Loader via Open-Elevation API ---
-def get_elevation_grid(xx, yy):
-    coords = [{"latitude": float(lat), "longitude": float(lon)} for lat, lon in zip(yy.ravel(), xx.ravel())]
-    response = requests.post("https://api.open-elevation.com/api/v1/lookup", json={"locations": coords})
-    elevations = [point["elevation"] for point in response.json()["results"]]
-    zz_topo = np.array(elevations).reshape(xx.shape)
-    return zz_topo
+def get_elevation_grid(xx, yy, batch_size=100):
+    flat_x = xx.ravel()
+    flat_y = yy.ravel()
+    elevations = []
+
+    for i in range(0, len(flat_x), batch_size):
+        coords = [{"latitude": float(lat), "longitude": float(lon)}
+                  for lat, lon in zip(flat_y[i:i+batch_size], flat_x[i:i+batch_size])]
+        response = requests.post("https://api.open-elevation.com/api/v1/lookup", json={"locations": coords})
+        try:
+            results = response.json()["results"]
+            elevations.extend([point["elevation"] for point in results])
+        except Exception as e:
+            st.error(f"Elevation API failed at batch {i}.")
+            elevations.extend([0] * len(coords))  # fallback
+
+    return np.array(elevations).reshape(xx.shape)
+
 
 # --- Plotting ---
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
