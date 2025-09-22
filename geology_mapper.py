@@ -23,6 +23,7 @@ min_y = st.sidebar.number_input("Min Latitude", value=53.04)
 max_y = st.sidebar.number_input("Max Latitude", value=53.09)
 
 resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=150)
+tolerance = st.sidebar.slider("Intersection Tolerance (m)", 1, 20, value=5)
 
 # --- Plane Generator using correct strike/dip logic ---
 def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
@@ -68,8 +69,8 @@ def get_elevation_grid(xx, yy, coarse_res=25):
     return zz_interp
 
 # --- Plotting ---
-def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
-    mask = (zz_topo <= zz_top) & (zz_topo >= zz_base)
+def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
+    mask = (zz_topo <= zz_top + tolerance) & (zz_topo >= zz_base - tolerance)
 
     fig = go.Figure()
 
@@ -81,7 +82,7 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         contours=dict(showlabels=True),
         line=dict(color="gray"),
         showscale=False,
-        colorscale=None,
+        colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
         name="Elevation"
     ))
 
@@ -101,10 +102,9 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         z=np.abs(zz_topo - zz_top),
         x=xx[0],
         y=yy[:,0],
-        contours=dict(start=0, end=0.1, size=0.1),
+        contours=dict(start=0, end=tolerance, size=tolerance),
         line=dict(color="black", width=2),
         showscale=False,
-        colorscale=None,
         name="Top Plane Trace"
     ))
 
@@ -113,10 +113,9 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         z=np.abs(zz_topo - zz_base),
         x=xx[0],
         y=yy[:,0],
-        contours=dict(start=0, end=0.1, size=0.1),
+        contours=dict(start=0, end=tolerance, size=tolerance),
         line=dict(color="black", width=2),
         showscale=False,
-        colorscale=None,
         name="Base Plane Trace"
     ))
 
@@ -128,4 +127,4 @@ if st.button("Generate Map"):
     with st.spinner("Querying elevation and computing surface trace..."):
         xx, yy, zz_top, zz_base = generate_planes(x0, y0, z0, strike, dip, thickness, resolution)
         zz_topo = get_elevation_grid(xx, yy)
-        plot_trace(xx, yy, zz_topo, zz_top, zz_base)
+        plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance)
