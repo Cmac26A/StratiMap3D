@@ -25,26 +25,26 @@ max_y = st.sidebar.number_input("Max Latitude", value=53.09)
 resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=150)
 tolerance = st.sidebar.slider("Intersection Tolerance (m)", 1, 20, value=5)
 
-# --- Plane Generator using corrected strike/dip logic ---
+# --- Plane Generator using correct strike/dip logic ---
 def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     strike_rad = np.radians(strike)
     dip_rad = np.radians(dip)
     dip_dir_rad = strike_rad + np.pi / 2
 
-    # Dip direction vector
-    dx = np.cos(dip_dir_rad) * np.sin(dip_rad)
-    dy = np.sin(dip_dir_rad) * np.sin(dip_rad)
-    dz = -np.cos(dip_rad)
+    # Normal vector from strike and dip
+    nx = np.sin(dip_rad) * np.cos(dip_dir_rad)
+    ny = np.sin(dip_rad) * np.sin(dip_dir_rad)
+    nz = np.cos(dip_rad)
 
     x_vals = np.linspace(min_x, max_x, resolution)
     y_vals = np.linspace(min_y, max_y, resolution)
     xx, yy = np.meshgrid(x_vals, y_vals)
 
     # Top plane
-    zz_top = ((dx * (xx - x0)) + (dy * (yy - y0))) / -dz + z0
+    zz_top = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
 
-    # Base plane offset along dip direction
-    zz_base = zz_top + (thickness * dz / np.sqrt(dx**2 + dy**2 + dz**2))
+    # Offset base plane along normal vector
+    zz_base = zz_top - thickness * nz / np.sqrt(nx**2 + ny**2 + nz**2)
     return xx, yy, zz_top, zz_base
 
 # --- Fast Elevation Loader ---
@@ -72,12 +72,6 @@ def get_elevation_grid(xx, yy, coarse_res=25):
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
     mask = (zz_topo <= zz_top + tolerance) & (zz_topo >= zz_base - tolerance)
 
-    # Trace points for top and base plane intersections
-    trace_top_x = xx[np.abs(zz_topo - zz_top) < tolerance]
-    trace_top_y = yy[np.abs(zz_topo - zz_top) < tolerance]
-    trace_base_x = xx[np.abs(zz_topo - zz_base) < tolerance]
-    trace_base_y = yy[np.abs(zz_topo - zz_base) < tolerance]
-
     fig = go.Figure()
 
     # Terrain contours
@@ -103,21 +97,25 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
         name="Outcrop Trace"
     ))
 
-    # Top plane trace (black)
-    fig.add_trace(go.Scatter(
-        x=trace_top_x,
-        y=trace_top_y,
-        mode="markers",
-        marker=dict(color="black", size=3),
+    # Top plane trace
+    fig.add_trace(go.Contour(
+        z=np.abs(zz_topo - zz_top),
+        x=xx[0],
+        y=yy[:,0],
+        contours=dict(start=0, end=tolerance, size=tolerance),
+        line=dict(color="black", width=2),
+        showscale=False,
         name="Top Plane Trace"
     ))
 
-    # Base plane trace (black)
-    fig.add_trace(go.Scatter(
-        x=trace_base_x,
-        y=trace_base_y,
-        mode="markers",
-        marker=dict(color="black", size=3),
+    # Base plane trace
+    fig.add_trace(go.Contour(
+        z=np.abs(zz_topo - zz_base),
+        x=xx[0],
+        y=yy[:,0],
+        contours=dict(start=0, end=tolerance, size=tolerance),
+        line=dict(color="black", width=2),
+        showscale=False,
         name="Base Plane Trace"
     ))
 
