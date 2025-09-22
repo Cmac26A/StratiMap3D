@@ -77,20 +77,21 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
 
     fig = go.Figure()
 
-    fig.add_trace(go.Contour(
+    # Elevation as heatmap
+    fig.add_trace(go.Heatmap(
         z=zz_topo,
-        x=xx[0, :],
+        x=xx[0],
         y=yy[:, 0],
-        contours=dict(showlabels=True),
-        line=dict(color="gray"),
+        colorscale="Greys",
         showscale=False,
-        colorscale=[[0, "gray"], [1, "gray"]],
+        opacity=1.0,
         name="Elevation"
     ))
 
+    # Outcrop trace overlay
     fig.add_trace(go.Heatmap(
         z=mask.astype(int),
-        x=xx[0, :],
+        x=xx[0],
         y=yy[:, 0],
         colorscale=[[0, "rgba(0,0,0,0)"], [1, "red"]],
         showscale=False,
@@ -106,4 +107,4 @@ if st.button("Generate Map"):
     with st.spinner("Querying elevation and computing surface trace..."):
         xx, yy, zz_top, zz_base = generate_planes(x0, y0, z0, strike, dip, thickness, resolution)
         zz_topo = get_elevation_grid(xx, yy)
-        plot_trace(xx, yy, zz_topo, zz_top, 
+        plot_trace(xx, yy, zz_topo, zz_top, zz_base)
