@@ -72,8 +72,15 @@ def get_elevation_grid(xx, yy, coarse_res=25):
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
     mask = (zz_topo <= zz_top + tolerance) & (zz_topo >= zz_base - tolerance)
 
+    # Trace points for top and base plane intersections
+    trace_top_x = xx[np.abs(zz_topo - zz_top) < tolerance]
+    trace_top_y = yy[np.abs(zz_topo - zz_top) < tolerance]
+    trace_base_x = xx[np.abs(zz_topo - zz_base) < tolerance]
+    trace_base_y = yy[np.abs(zz_topo - zz_base) < tolerance]
+
     fig = go.Figure()
 
+    # Terrain contours
     fig.add_trace(go.Contour(
         z=zz_topo,
         x=xx[0],
@@ -85,6 +92,7 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
         name="Elevation"
     ))
 
+    # Outcrop trace overlay
     fig.add_trace(go.Heatmap(
         z=mask.astype(int),
         x=xx[0],
@@ -93,6 +101,24 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
         showscale=False,
         opacity=0.6,
         name="Outcrop Trace"
+    ))
+
+    # Top plane trace (black)
+    fig.add_trace(go.Scatter(
+        x=trace_top_x,
+        y=trace_top_y,
+        mode="markers",
+        marker=dict(color="black", size=3),
+        name="Top Plane Trace"
+    ))
+
+    # Base plane trace (black)
+    fig.add_trace(go.Scatter(
+        x=trace_base_x,
+        y=trace_base_y,
+        mode="markers",
+        marker=dict(color="black", size=3),
+        name="Base Plane Trace"
     ))
 
     fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
