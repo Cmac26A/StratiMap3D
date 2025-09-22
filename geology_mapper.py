@@ -7,7 +7,7 @@ from scipy.interpolate import griddata
 st.set_page_config(page_title="Geological Mapper", layout="wide")
 st.title("🗺️ Surface Trace of Dipping Geological Unit")
 
-# --- Sidebar Inputs with Snowdon Defaults ---
+# --- Sidebar Inputs ---
 st.sidebar.header("Geological Unit Parameters")
 x0 = st.sidebar.number_input("Top X (Longitude)", value=-4.0768)
 y0 = st.sidebar.number_input("Top Y (Latitude)", value=53.0685)
@@ -24,13 +24,12 @@ max_y = st.sidebar.number_input("Max Latitude", value=53.09)
 
 resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=150)
 
-# --- Plane Generator using correct strike/dip logic ---
+# --- Strike/Dip Plane Generator ---
 def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     strike_rad = np.radians(strike)
     dip_rad = np.radians(dip)
     dip_dir_rad = strike_rad + np.pi / 2
 
-    # Normal vector from strike and dip
     nx = np.sin(dip_rad) * np.cos(dip_dir_rad)
     ny = np.sin(dip_rad) * np.sin(dip_dir_rad)
     nz = np.cos(dip_rad)
@@ -39,14 +38,11 @@ def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     y_vals = np.linspace(min_y, max_y, resolution)
     xx, yy = np.meshgrid(x_vals, y_vals)
 
-    # Top plane
     zz_top = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
-
-    # Offset base plane along normal vector
     zz_base = zz_top - thickness * nz / np.sqrt(nx**2 + ny**2 + nz**2)
     return xx, yy, zz_top, zz_base
 
-# --- Fast Elevation Loader ---
+# --- Elevation Grid Loader ---
 def get_elevation_grid(xx, yy, coarse_res=25):
     x_coarse = np.linspace(min_x, max_x, coarse_res)
     y_coarse = np.linspace(min_y, max_y, coarse_res)
@@ -77,17 +73,12 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
     zz_top = clean_array(zz_top)
     zz_base = clean_array(zz_base)
 
-    # Ensure shapes match
-    assert zz_topo.shape == zz_top.shape == zz_base.shape, "Shape mismatch in elevation arrays"
-
-    # Compute masks and differences
     mask = (zz_topo <= zz_top) & (zz_topo >= zz_base)
     zz_top_diff = clean_array(zz_topo - zz_top)
     zz_base_diff = clean_array(zz_topo - zz_base)
 
     fig = go.Figure()
 
-    # Terrain contours
     fig.add_trace(go.Contour(
         z=zz_topo,
         x=xx[0, :],
@@ -99,7 +90,6 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         name="Elevation"
     ))
 
-    # Outcrop trace overlay
     fig.add_trace(go.Heatmap(
         z=mask.astype(int),
         x=xx[0, :],
@@ -110,29 +100,29 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         name="Outcrop Trace"
     ))
 
-    # Top plane trace
-    fig.add_trace(go.Contour(
-        z=zz_top_diff,
-        x=xx[0, :],
-        y=yy[:, 0],
-        contours=dict(start=0, end=0, size=1),
-        line=dict(color="black", width=2),
-        showscale=False,
-        coloring="lines",
-        name="Top Plane Trace"
-    ))
+    if np.any(zz_top_diff):
+        fig.add_trace(go.Contour(
+            z=zz_top_diff,
+            x=xx[0, :],
+            y=yy[:, 0],
+            contours=dict(start=0, end=0, size=1),
+            coloring="lines",
+            line=dict(color="black", width=2),
+            showscale=False,
+            name="Top Plane Trace"
+        ))
 
-    # Base plane trace
-    fig.add_trace(go.Contour(
-        z=zz_base_diff,
-        x=xx[0, :],
-        y=yy[:, 0],
-        contours=dict(start=0, end=0, size=1),
-        line=dict(color="black", width=2),
-        showscale=False,
-        coloring="lines",
-        name="Base Plane Trace"
-    ))
+    if np.any(zz_base_diff):
+        fig.add_trace(go.Contour(
+            z=zz_base_diff,
+            x=xx[0, :],
+            y=yy[:, 0],
+            contours=dict(start=0, end=0, size=1),
+            coloring="lines",
+            line=dict(color="black", width=2),
+            showscale=False,
+            name="Base Plane Trace"
+        ))
 
     fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
     st.plotly_chart(fig, use_container_width=True)
