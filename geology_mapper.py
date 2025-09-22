@@ -106,8 +106,6 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
             x=xx[0, :],
             y=yy[:, 0],
             contours=dict(start=0, end=0, size=1),
-            coloring="lines",
-            line=dict(color="black", width=2),
             showscale=False,
             name="Top Plane Trace"
         ))
@@ -118,8 +116,6 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
             x=xx[0, :],
             y=yy[:, 0],
             contours=dict(start=0, end=0, size=1),
-            coloring="lines",
-            line=dict(color="black", width=2),
             showscale=False,
             name="Base Plane Trace"
         ))
