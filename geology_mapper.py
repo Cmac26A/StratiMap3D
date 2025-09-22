@@ -106,4 +106,4 @@ if st.button("Generate Map"):
     with st.spinner("Querying elevation and computing surface trace..."):
         xx, yy, zz_top, zz_base = generate_planes(x0, y0, z0, strike, dip, thickness, resolution)
         zz_topo = get_elevation_grid(xx, yy)
-        plot_trace(xx, yy, zz_topo, zz_top, zz_base)
+        plot_trace(xx, yy, zz_topo, zz_top, 
