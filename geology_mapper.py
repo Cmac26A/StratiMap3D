@@ -79,5 +79,5 @@ def plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data):
 if st.button("Generate Contour Plot"):
     with st.spinner("Loading elevation and computing intersection..."):
         xx, yy, zz_plane = generate_plane(x0, y0, z0, strike, dip, resolution)
-        lon_grid, lat_grid, elevation_data = load_elevation(min_x, max_x, min_y, max_y)
+        lon_grid, lat_grid, elevation_data = load_elevation_from_url(min_x, max_x, min_y, max_y)
         plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data)
