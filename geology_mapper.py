@@ -74,8 +74,6 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
     zz_base = clean_array(zz_base)
 
     mask = (zz_topo <= zz_top) & (zz_topo >= zz_base)
-    zz_top_diff = clean_array(zz_topo - zz_top)
-    zz_base_diff = clean_array(zz_topo - zz_base)
 
     fig = go.Figure()
 
@@ -99,26 +97,6 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         opacity=0.6,
         name="Outcrop Trace"
     ))
-
-    if np.any(zz_top_diff):
-        fig.add_trace(go.Contour(
-            z=zz_top_diff,
-            x=xx[0, :],
-            y=yy[:, 0],
-            contours=dict(start=0, end=0, size=1),
-            showscale=False,
-            name="Top Plane Trace"
-        ))
-
-    if np.any(zz_base_diff):
-        fig.add_trace(go.Contour(
-            z=zz_base_diff,
-            x=xx[0, :],
-            y=yy[:, 0],
-            contours=dict(start=0, end=0, size=1),
-            showscale=False,
-            name="Base Plane Trace"
-        ))
 
     fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
     st.plotly_chart(fig, use_container_width=True)
