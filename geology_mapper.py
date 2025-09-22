@@ -67,9 +67,19 @@ def get_elevation_grid(xx, yy, coarse_res=25):
     zz_interp = griddata((xc.ravel(), yc.ravel()), zz_coarse.ravel(), (xx, yy), method='cubic')
     return zz_interp
 
+# --- NaN Cleaner ---
+def clean_array(arr):
+    return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+
 # --- Plotting ---
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
+    zz_topo = clean_array(zz_topo)
+    zz_top = clean_array(zz_top)
+    zz_base = clean_array(zz_base)
+
     mask = (zz_topo <= zz_top) & (zz_topo >= zz_base)
+    zz_top_diff = clean_array(zz_topo - zz_top)
+    zz_base_diff = clean_array(zz_topo - zz_base)
 
     fig = go.Figure()
 
@@ -96,9 +106,9 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         name="Outcrop Trace"
     ))
 
-    # Top plane trace (black line)
+    # Top plane trace
     fig.add_trace(go.Contour(
-        z=zz_topo - zz_top,
+        z=zz_top_diff,
         x=xx[0],
         y=yy[:,0],
         contours=dict(start=0, end=0, size=1),
@@ -108,9 +118,9 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
         name="Top Plane Trace"
     ))
 
-    # Base plane trace (black line)
+    # Base plane trace
     fig.add_trace(go.Contour(
-        z=zz_topo - zz_base,
+        z=zz_base_diff,
         x=xx[0],
         y=yy[:,0],
         contours=dict(start=0, end=0, size=1),
