@@ -71,12 +71,16 @@ def get_elevation_grid(xx, yy, coarse_res=25):
 def clean_array(arr):
     return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
 
-# --- Plotting ---
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
-    zz_topo = clean_array(zz_topo)
-    zz_top = clean_array(zz_top)
-    zz_base = clean_array(zz_base)
+    # Clean and enforce float64
+    zz_topo = clean_array(zz_topo).astype(np.float64)
+    zz_top = clean_array(zz_top).astype(np.float64)
+    zz_base = clean_array(zz_base).astype(np.float64)
 
+    # Ensure shapes match
+    assert zz_topo.shape == zz_top.shape == zz_base.shape, "Shape mismatch in elevation arrays"
+
+    # Compute masks and differences
     mask = (zz_topo <= zz_top) & (zz_topo >= zz_base)
     zz_top_diff = clean_array(zz_topo - zz_top)
     zz_base_diff = clean_array(zz_topo - zz_base)
@@ -132,6 +136,7 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
 
     fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
     st.plotly_chart(fig, use_container_width=True)
+
 
 # --- Run ---
 if st.button("Generate Map"):
