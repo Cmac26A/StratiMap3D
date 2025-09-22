@@ -2,27 +2,18 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import requests
+from scipy.interpolate import griddata
 
-st.set_page_config(page_title="Geological Volume Mapper", layout="wide")
-st.title("🗺️ Surface Trace of Dipping Geological Unit")
+st.set_page_config(page_title="Fast Geological Mapper", layout="wide")
+st.title("🗺️ Surface Trace of Dipping Geological Unit (Fast Version)")
 
-# --- Inputs ---
-st.sidebar.header("Geological Unit Parameters")
-x0 = st.sidebar.number_input("Top X (Longitude)", value=-4.0)
-y0 = st.sidebar.number_input("Top Y (Latitude)", value=54.0)
-z0 = st.sidebar.number_input("Top Z (Altitude)", value=200.0)
-strike = st.sidebar.slider("Strike (°)", 0, 360, value=90)
-dip = st.sidebar.slider("Dip (°)", 0, 90, value=30)
-thickness = st.sidebar.number_input("Thickness (m)", value=50.0)
-
-st.sidebar.header("Region Bounding Box")
-min_x = st.sidebar.number_input("Min Longitude", value=-4.5)
-max_x = st.sidebar.number_input("Max Longitude", value=-3.5)
-min_y = st.sidebar.number_input("Min Latitude", value=53.5)
-max_y = st.sidebar.number_input("Max Latitude", value=54.5)
-
-resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=100)
-tolerance = st.sidebar.slider("Intersection Tolerance (m)", 1, 20, value=5)
+# --- Parameters (Snowdon test case) ---
+x0, y0, z0 = -4.0768, 53.0685, 1085
+strike, dip, thickness = 135, 30, 150
+min_x, max_x = -4.12, -4.03
+min_y, max_y = 53.04, 53.09
+resolution = 150
+tolerance = 5
 
 # --- Plane Generator ---
 def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
@@ -40,33 +31,33 @@ def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     zz_base = zz_top - thickness / nz
     return xx, yy, zz_top, zz_base
 
-def get_elevation_grid(xx, yy, batch_size=100):
-    flat_x = xx.ravel()
-    flat_y = yy.ravel()
-    elevations = []
+# --- Fast Elevation Loader ---
+def get_elevation_grid(xx, yy, coarse_res=25):
+    x_coarse = np.linspace(min_x, max_x, coarse_res)
+    y_coarse = np.linspace(min_y, max_y, coarse_res)
+    xc, yc = np.meshgrid(x_coarse, y_coarse)
+    coords = [{"latitude": float(lat), "longitude": float(lon)} for lat, lon in zip(yc.ravel(), xc.ravel())]
 
-    for i in range(0, len(flat_x), batch_size):
-        coords = [{"latitude": float(lat), "longitude": float(lon)}
-                  for lat, lon in zip(flat_y[i:i+batch_size], flat_x[i:i+batch_size])]
-        response = requests.post("https://api.open-elevation.com/api/v1/lookup", json={"locations": coords})
+    elevations = []
+    for i in range(0, len(coords), 100):
+        chunk = coords[i:i+100]
+        response = requests.post("https://api.open-elevation.com/api/v1/lookup", json={"locations": chunk})
         try:
             results = response.json()["results"]
-            elevations.extend([point["elevation"] for point in results])
-        except Exception as e:
-            st.error(f"Elevation API failed at batch {i}.")
-            elevations.extend([0] * len(coords))  # fallback
+            elevations.extend([pt["elevation"] for pt in results])
+        except:
+            elevations.extend([0] * len(chunk))
 
-    return np.array(elevations).reshape(xx.shape)
-
+    zz_coarse = np.array(elevations).reshape(xc.shape)
+    zz_interp = griddata((xc.ravel(), yc.ravel()), zz_coarse.ravel(), (xx, yy), method='cubic')
+    return zz_interp
 
 # --- Plotting ---
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
-    # Mask where terrain lies between top and base planes
     mask = (zz_topo <= zz_top + tolerance) & (zz_topo >= zz_base - tolerance)
 
     fig = go.Figure()
 
-    # Terrain contours
     fig.add_trace(go.Contour(
         z=zz_topo,
         x=xx[0],
@@ -74,12 +65,10 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
         contours=dict(showlabels=True),
         line=dict(color="gray"),
         showscale=False,
-        colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],  # transparent fill
+        colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
         name="Elevation"
     ))
-    
 
-    # Outcrop trace overlay
     fig.add_trace(go.Heatmap(
         z=mask.astype(int),
         x=xx[0],
