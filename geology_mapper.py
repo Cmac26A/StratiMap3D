@@ -69,13 +69,13 @@ def get_elevation_grid(xx, yy, coarse_res=25):
 
 # --- NaN Cleaner ---
 def clean_array(arr):
-    return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+    return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64)
 
+# --- Plotting ---
 def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
-    # Clean and enforce float64
-    zz_topo = clean_array(zz_topo).astype(np.float64)
-    zz_top = clean_array(zz_top).astype(np.float64)
-    zz_base = clean_array(zz_base).astype(np.float64)
+    zz_topo = clean_array(zz_topo)
+    zz_top = clean_array(zz_top)
+    zz_base = clean_array(zz_base)
 
     # Ensure shapes match
     assert zz_topo.shape == zz_top.shape == zz_base.shape, "Shape mismatch in elevation arrays"
@@ -90,8 +90,8 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
     # Terrain contours
     fig.add_trace(go.Contour(
         z=zz_topo,
-        x=xx[0],
-        y=yy[:,0],
+        x=xx[0, :],
+        y=yy[:, 0],
         contours=dict(showlabels=True),
         line=dict(color="gray"),
         showscale=False,
@@ -102,8 +102,8 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
     # Outcrop trace overlay
     fig.add_trace(go.Heatmap(
         z=mask.astype(int),
-        x=xx[0],
-        y=yy[:,0],
+        x=xx[0, :],
+        y=yy[:, 0],
         colorscale=[[0, "rgba(0,0,0,0)"], [1, "red"]],
         showscale=False,
         opacity=0.6,
@@ -113,8 +113,8 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
     # Top plane trace
     fig.add_trace(go.Contour(
         z=zz_top_diff,
-        x=xx[0],
-        y=yy[:,0],
+        x=xx[0, :],
+        y=yy[:, 0],
         contours=dict(start=0, end=0, size=1),
         line=dict(color="black", width=2),
         showscale=False,
@@ -125,8 +125,8 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
     # Base plane trace
     fig.add_trace(go.Contour(
         z=zz_base_diff,
-        x=xx[0],
-        y=yy[:,0],
+        x=xx[0, :],
+        y=yy[:, 0],
         contours=dict(start=0, end=0, size=1),
         line=dict(color="black", width=2),
         showscale=False,
@@ -136,7 +136,6 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
 
     fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
     st.plotly_chart(fig, use_container_width=True)
-
 
 # --- Run ---
 if st.button("Generate Map"):
