@@ -4,16 +4,26 @@ import plotly.graph_objects as go
 import requests
 from scipy.interpolate import griddata
 
-st.set_page_config(page_title="Fast Geological Mapper", layout="wide")
-st.title("🗺️ Surface Trace of Dipping Geological Unit (Fast Version)")
+st.set_page_config(page_title="Geological Mapper", layout="wide")
+st.title("🗺️ Surface Trace of Dipping Geological Unit")
 
-# --- Parameters (Snowdon test case) ---
-x0, y0, z0 = -4.0768, 53.0685, 1085
-strike, dip, thickness = 135, 30, 150
-min_x, max_x = -4.12, -4.03
-min_y, max_y = 53.04, 53.09
-resolution = 150
-tolerance = 5
+# --- Sidebar Inputs with Snowdon Defaults ---
+st.sidebar.header("Geological Unit Parameters")
+x0 = st.sidebar.number_input("Top X (Longitude)", value=-4.0768)
+y0 = st.sidebar.number_input("Top Y (Latitude)", value=53.0685)
+z0 = st.sidebar.number_input("Top Z (Altitude)", value=1085)
+strike = st.sidebar.slider("Strike (°)", 0, 360, value=135)
+dip = st.sidebar.slider("Dip (°)", 0, 90, value=30)
+thickness = st.sidebar.number_input("Thickness (m)", value=150.0)
+
+st.sidebar.header("Region Bounding Box")
+min_x = st.sidebar.number_input("Min Longitude", value=-4.12)
+max_x = st.sidebar.number_input("Max Longitude", value=-4.03)
+min_y = st.sidebar.number_input("Min Latitude", value=53.04)
+max_y = st.sidebar.number_input("Max Latitude", value=53.09)
+
+resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=150)
+tolerance = st.sidebar.slider("Intersection Tolerance (m)", 1, 20, value=5)
 
 # --- Plane Generator ---
 def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
