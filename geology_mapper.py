@@ -3,8 +3,8 @@ import numpy as np
 import plotly.graph_objects as go
 import requests
 
-st.set_page_config(page_title="Geological Plane Mapper", layout="wide")
-st.title("🗺️ Geological Plane Imprint on Topography (Open-Elevation API)")
+st.set_page_config(page_title="Geological Volume Mapper", layout="wide")
+st.title("🗺️ Surface Trace of Dipping Geological Unit")
 
 # --- Inputs ---
 st.sidebar.header("Geological Unit Parameters")
@@ -22,9 +22,10 @@ min_y = st.sidebar.number_input("Min Latitude", value=53.5)
 max_y = st.sidebar.number_input("Max Latitude", value=54.5)
 
 resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=100)
+tolerance = st.sidebar.slider("Intersection Tolerance (m)", 1, 20, value=5)
 
 # --- Plane Generator ---
-def generate_plane(x0, y0, z0, strike, dip, resolution):
+def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     strike_rad = np.radians(strike)
     dip_rad = np.radians(dip)
     nx = -np.sin(dip_rad) * np.sin(strike_rad)
@@ -34,8 +35,10 @@ def generate_plane(x0, y0, z0, strike, dip, resolution):
     x_vals = np.linspace(min_x, max_x, resolution)
     y_vals = np.linspace(min_y, max_y, resolution)
     xx, yy = np.meshgrid(x_vals, y_vals)
-    zz = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
-    return xx, yy, zz
+
+    zz_top = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
+    zz_base = zz_top - thickness / nz
+    return xx, yy, zz_top, zz_base
 
 # --- Elevation Loader via Open-Elevation API ---
 def get_elevation_grid(xx, yy):
@@ -46,22 +49,40 @@ def get_elevation_grid(xx, yy):
     return zz_topo
 
 # --- Plotting ---
-def plot_contour(xx, yy, zz_plane, zz_topo):
-    diff = zz_plane - zz_topo
-    fig = go.Figure(data=go.Contour(
-        z=diff,
+def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
+    # Mask where terrain lies between top and base planes
+    mask = (zz_topo <= zz_top + tolerance) & (zz_topo >= zz_base - tolerance)
+
+    fig = go.Figure()
+
+    # Terrain contours
+    fig.add_trace(go.Contour(
+        z=zz_topo,
         x=xx[0],
         y=yy[:,0],
         contours=dict(showlabels=True),
-        colorscale='Viridis',
-        line_smoothing=0.85
+        line=dict(color="gray"),
+        showscale=False,
+        name="Elevation"
     ))
-    fig.update_layout(title="Plane–Topography Intersection", xaxis_title="Longitude", yaxis_title="Latitude")
+
+    # Outcrop trace overlay
+    fig.add_trace(go.Heatmap(
+        z=mask.astype(int),
+        x=xx[0],
+        y=yy[:,0],
+        colorscale=[[0, "rgba(0,0,0,0)"], [1, "red"]],
+        showscale=False,
+        opacity=0.6,
+        name="Outcrop Trace"
+    ))
+
+    fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
     st.plotly_chart(fig, use_container_width=True)
 
 # --- Run ---
-if st.button("Generate Contour Plot"):
-    with st.spinner("Querying elevation and computing intersection..."):
-        xx, yy, zz_plane = generate_plane(x0, y0, z0, strike, dip, resolution)
+if st.button("Generate Map"):
+    with st.spinner("Querying elevation and computing surface trace..."):
+        xx, yy, zz_top, zz_base = generate_planes(x0, y0, z0, strike, dip, thickness, resolution)
         zz_topo = get_elevation_grid(xx, yy)
-        plot_contour(xx, yy, zz_plane, zz_topo)
+        plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance)
