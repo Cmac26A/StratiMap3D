@@ -40,15 +40,19 @@ def generate_plane(x0, y0, z0, strike, dip, resolution):
     zz = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
     return xx, yy, zz
 
-# --- Elevation Loader ---
-def load_elevation(min_x, max_x, min_y, max_y):
-    elevation.clip(bounds=(min_x, min_y, max_x, max_y), output="data.tif")
-    with rasterio.open("data.tif") as src:
-        band = src.read(1)
-        lon = np.linspace(min_x, max_x, band.shape[1])
-        lat = np.linspace(max_y, min_y, band.shape[0])  # flipped
-        lon_grid, lat_grid = np.meshgrid(lon, lat)
-    return lon_grid, lat_grid, band
+import rioxarray as rxr
+
+def load_elevation_from_url(min_x, max_x, min_y, max_y):
+    # Example: AWS Terrain Tiles (change URL to match your region)
+    url = "https://s3.amazonaws.com/elevation-tiles-prod/skadi/N54/N54W004.hgt.gz"
+
+    # Load and crop
+    elevation = rxr.open_rasterio(url, masked=True)
+    elevation = elevation.rio.clip_box(minx=min_x, maxx=max_x, miny=min_y, maxy=max_y)
+    lon = np.linspace(min_x, max_x, elevation.shape[-1])
+    lat = np.linspace(max_y, min_y, elevation.shape[-2])  # flipped
+    lon_grid, lat_grid = np.meshgrid(lon, lat)
+    return lon_grid, lat_grid, elevation.squeeze().values
 
 # --- Intersect & Plot ---
 def plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data):
