@@ -25,20 +25,26 @@ max_y = st.sidebar.number_input("Max Latitude", value=53.09)
 resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=150)
 tolerance = st.sidebar.slider("Intersection Tolerance (m)", 1, 20, value=5)
 
-# --- Plane Generator ---
+# --- Plane Generator using corrected strike/dip logic ---
 def generate_planes(x0, y0, z0, strike, dip, thickness, resolution):
     strike_rad = np.radians(strike)
     dip_rad = np.radians(dip)
-    nx = -np.sin(dip_rad) * np.sin(strike_rad)
-    ny = -np.sin(dip_rad) * np.cos(strike_rad)
-    nz = np.cos(dip_rad)
+    dip_dir_rad = strike_rad + np.pi / 2
+
+    # Dip direction vector
+    dx = np.cos(dip_dir_rad) * np.sin(dip_rad)
+    dy = np.sin(dip_dir_rad) * np.sin(dip_rad)
+    dz = -np.cos(dip_rad)
 
     x_vals = np.linspace(min_x, max_x, resolution)
     y_vals = np.linspace(min_y, max_y, resolution)
     xx, yy = np.meshgrid(x_vals, y_vals)
 
-    zz_top = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
-    zz_base = zz_top - thickness / nz
+    # Top plane
+    zz_top = ((dx * (xx - x0)) + (dy * (yy - y0))) / -dz + z0
+
+    # Base plane offset along dip direction
+    zz_base = zz_top + (thickness * dz / np.sqrt(dx**2 + dy**2 + dz**2))
     return xx, yy, zz_top, zz_base
 
 # --- Fast Elevation Loader ---
