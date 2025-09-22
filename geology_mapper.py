@@ -77,7 +77,7 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
 
     fig = go.Figure()
 
-    # Elevation as heatmap
+    # Elevation as heatmap (replaces Contour)
     fig.add_trace(go.Heatmap(
         z=zz_topo,
         x=xx[0],
@@ -101,6 +101,7 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base):
 
     fig.update_layout(title="Surface Trace of Geological Volume", xaxis_title="Longitude", yaxis_title="Latitude")
     st.plotly_chart(fig, use_container_width=True)
+
 
 # --- Run ---
 if st.button("Generate Map"):
