@@ -1,10 +1,8 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
-import elevation
-import rasterio
-import xarray as xr
-from scipy.interpolate import griddata
+import requests
+import rioxarray as rxr
 
 st.set_page_config(page_title="Geological Plane Mapper", layout="wide")
 st.title("🗺️ Geological Plane Imprint on Topography")
@@ -40,28 +38,28 @@ def generate_plane(x0, y0, z0, strike, dip, resolution):
     zz = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
     return xx, yy, zz
 
-import rioxarray as rxr
+# --- Elevation Loader ---
+def download_elevation_tile(url, filename="tile.tif"):
+    response = requests.get(url)
+    with open(filename, "wb") as f:
+        f.write(response.content)
 
 def load_elevation_from_url(min_x, max_x, min_y, max_y):
-    # Example: AWS Terrain Tiles (change URL to match your region)
-    url = "https://s3.amazonaws.com/elevation-tiles-prod/skadi/N54/N54W004.hgt.gz"
-
-    # Load and crop
-    elevation = rxr.open_rasterio(url, masked=True)
+    url = "https://github.com/GeoTIFF/test-data/raw/main/uk_sample.tif"
+    download_elevation_tile(url)
+    elevation = rxr.open_rasterio("tile.tif", masked=True)
     elevation = elevation.rio.clip_box(minx=min_x, maxx=max_x, miny=min_y, maxy=max_y)
     lon = np.linspace(min_x, max_x, elevation.shape[-1])
-    lat = np.linspace(max_y, min_y, elevation.shape[-2])  # flipped
+    lat = np.linspace(max_y, min_y, elevation.shape[-2])
     lon_grid, lat_grid = np.meshgrid(lon, lat)
     return lon_grid, lat_grid, elevation.squeeze().values
 
-# --- Intersect & Plot ---
+# --- Plotting ---
 def plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data):
-    # Interpolate elevation to match plane grid
+    from scipy.interpolate import griddata
     points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
     values = elevation_data.ravel()
     zz_topo = griddata(points, values, (xx, yy), method='linear')
-
-    # Difference between plane and topography
     diff = zz_plane - zz_topo
 
     fig = go.Figure(data=go.Contour(
