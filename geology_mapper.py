@@ -67,7 +67,7 @@ def plot_trace(xx, yy, zz_topo, zz_top, zz_base, tolerance):
     fig = go.Figure()
 
     # Terrain contours
-      fig.add_trace(go.Contour(
+    fig.add_trace(go.Contour(
         z=zz_topo,
         x=xx[0],
         y=yy[:,0],
