@@ -2,10 +2,9 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import requests
-import rioxarray as rxr
 
 st.set_page_config(page_title="Geological Plane Mapper", layout="wide")
-st.title("🗺️ Geological Plane Imprint on Topography")
+st.title("🗺️ Geological Plane Imprint on Topography (Open-Elevation API)")
 
 # --- Inputs ---
 st.sidebar.header("Geological Unit Parameters")
@@ -22,7 +21,7 @@ max_x = st.sidebar.number_input("Max Longitude", value=-3.5)
 min_y = st.sidebar.number_input("Min Latitude", value=53.5)
 max_y = st.sidebar.number_input("Max Latitude", value=54.5)
 
-resolution = st.sidebar.slider("Grid Resolution", 50, 300, value=100)
+resolution = st.sidebar.slider("Grid Resolution", 50, 200, value=100)
 
 # --- Plane Generator ---
 def generate_plane(x0, y0, z0, strike, dip, resolution):
@@ -38,30 +37,17 @@ def generate_plane(x0, y0, z0, strike, dip, resolution):
     zz = ((nx * (xx - x0)) + (ny * (yy - y0))) / -nz + z0
     return xx, yy, zz
 
-# --- Elevation Loader ---
-def download_elevation_tile(url, filename="tile.tif"):
-    response = requests.get(url)
-    with open(filename, "wb") as f:
-        f.write(response.content)
-
-def load_elevation_from_url(min_x, max_x, min_y, max_y):
-    url = "https://github.com/GeoTIFF/test-data/raw/main/uk_sample.tif"
-    download_elevation_tile(url)
-    elevation = rxr.open_rasterio("tile.tif", masked=True)
-    elevation = elevation.rio.clip_box(minx=min_x, maxx=max_x, miny=min_y, maxy=max_y)
-    lon = np.linspace(min_x, max_x, elevation.shape[-1])
-    lat = np.linspace(max_y, min_y, elevation.shape[-2])
-    lon_grid, lat_grid = np.meshgrid(lon, lat)
-    return lon_grid, lat_grid, elevation.squeeze().values
+# --- Elevation Loader via Open-Elevation API ---
+def get_elevation_grid(xx, yy):
+    coords = [{"latitude": float(lat), "longitude": float(lon)} for lat, lon in zip(yy.ravel(), xx.ravel())]
+    response = requests.post("https://api.open-elevation.com/api/v1/lookup", json={"locations": coords})
+    elevations = [point["elevation"] for point in response.json()["results"]]
+    zz_topo = np.array(elevations).reshape(xx.shape)
+    return zz_topo
 
 # --- Plotting ---
-def plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data):
-    from scipy.interpolate import griddata
-    points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
-    values = elevation_data.ravel()
-    zz_topo = griddata(points, values, (xx, yy), method='linear')
+def plot_contour(xx, yy, zz_plane, zz_topo):
     diff = zz_plane - zz_topo
-
     fig = go.Figure(data=go.Contour(
         z=diff,
         x=xx[0],
@@ -75,7 +61,7 @@ def plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data):
 
 # --- Run ---
 if st.button("Generate Contour Plot"):
-    with st.spinner("Loading elevation and computing intersection..."):
+    with st.spinner("Querying elevation and computing intersection..."):
         xx, yy, zz_plane = generate_plane(x0, y0, z0, strike, dip, resolution)
-        lon_grid, lat_grid, elevation_data = load_elevation_from_url(min_x, max_x, min_y, max_y)
-        plot_contour(xx, yy, zz_plane, lon_grid, lat_grid, elevation_data)
+        zz_topo = get_elevation_grid(xx, yy)
+        plot_contour(xx, yy, zz_plane, zz_topo)
